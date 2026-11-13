@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; font-family: "Source Sans Pro", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #wrap { padding: 4px 2px 6px 2px; }
+  button {
+    font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; color: #fff;
+    padding: 10px 22px; border-radius: 999px; border: 1px solid rgba(255,255,255,.65);
+    background: linear-gradient(135deg, rgba(214,51,108,.95), rgba(176,58,111,.88));
+    box-shadow: inset 0 1.5px 0 rgba(255,255,255,.55), 0 8px 22px rgba(214,51,108,.32);
+    transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+  }
+  button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.7), 0 12px 28px rgba(214,51,108,.42); }
+  button:active:not(:disabled) { transform: translateY(0) scale(.98); }
+  button:disabled { opacity: .65; cursor: progress; }
+  button:focus-visible { outline: 3px solid rgba(214,51,108,.45); outline-offset: 2px; }
+  #status { margin-top: 8px; font-size: 13.5px; line-height: 1.4; opacity: .88; min-height: 1px; }
+  #status.error { color: #e03131; opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <button id="go" type="button">Add my current location</button>
+  <div id="status" role="status" aria-live="polite"></div>
+</div>
+<script>
+  // A tiny Streamlit component written without any build step.
+  // It asks the browser for the device location and sends {lat, lon, accuracy, ts} back to Python.
+  function send(type, data) {
+    window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data || {}), "*");
+  }
+  var btn = document.getElementById("go");
+  var statusEl = document.getElementById("status");
+  var wrap = document.getElementById("wrap");
+
+  function fitHeight() {
+    send("streamlit:setFrameHeight", { height: Math.ceil(wrap.getBoundingClientRect().height) + 6 });
+  }
+  function say(text, isError) {
+    statusEl.textContent = text || "";
+    statusEl.className = isError ? "error" : "";
+    fitHeight();
+  }
+
+  window.addEventListener("message", function (event) {
+    if (!event.data || event.data.type !== "streamlit:render") return;
+    var args = event.data.args || {};
+    if (args.label) btn.textContent = args.label;
+    var theme = event.data.theme || {};
+    if (theme.textColor) document.body.style.color = theme.textColor;
+    fitHeight();
+  });
+
+  btn.addEventListener("click", function () {
+    if (!window.isSecureContext || !navigator.geolocation) {
+      say("Your browser only shares its location on https or on localhost. Open the app at http://localhost:8501 and try again.", true);
+      return;
+    }
+    btn.disabled = true;
+    say("Waiting for your browser to share your location…");
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        btn.disabled = false;
+        say("Got it. Accuracy about " + Math.round(pos.coords.accuracy) + " m.");
+        send("streamlit:setComponentValue", {
+          dataType: "json",
+          value: { lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: pos.coords.accuracy, ts: Date.now() }
+        });
+      },
+      function (err) {
+        btn.disabled = false;
+        var msg = {
+          1: "Location is blocked for this site. Allow location in your browser's address bar, then try again.",
+          2: "Your device could not work out where it is. Try again, or add the place by search instead.",
+          3: "Finding your location took too long. Try again."
+        }[err.code] || "Could not get your location.";
+        say(msg, true);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+
+  send("streamlit:componentReady", { apiVersion: 1 });
+  fitHeight();
+</script>
+</body>
+</html>
