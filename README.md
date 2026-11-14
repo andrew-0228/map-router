@@ -74,11 +74,15 @@ python3 -m venv venv
 source venv/bin/activate          # on Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-python load_map.py                # downloads the Bengaluru road network (set MAP_SIZE in the file for a smaller area)
+python load_map.py                # downloads the Bengaluru road network (skip it if you were given a map.pkl file, see below)
 python load_hospitals.py          # optional: hospitals for the Access map
 python load_amenities.py          # optional: the other kinds of place
 streamlit run app.py
 ```
+
+**Skip the map download:** if the author shared a `map.pkl` file with you, put it in the project folder next to `app.py` and skip
+`python load_map.py`. The app loads it directly. To download a smaller area yourself, change `MAP_SIZE` at the top of
+`load_map.py` to `"east"` or `"central"` before running it.
 
 The free OpenStreetMap servers are sometimes busy. If a download fails with a "retry" message, wait a few minutes and run the
 same command again. The place downloaders only fetch what is missing.
